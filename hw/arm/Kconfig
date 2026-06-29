@@ -396,6 +396,21 @@ config STM32F405_SOC
     select STM32F4XX_EXTI
     select UNIMP
 
+config STM32F103
+    bool
+    default y
+    depends on TCG && ARM
+    select STM32F103_SOC
+
+config STM32F103_SOC
+    bool
+    select ARM_V7M
+    select OR_IRQ
+    select STM32F1XX_RCC
+    select STM32F2XX_USART
+    select STM32F2XX_SPI
+    select STM32F1XX_ADC
+
 config B_L475E_IOT01A
     bool
     default y
