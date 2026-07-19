@@ -40,6 +40,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(STM32F103State, STM32F103_SOC)
 #define STM32F103_NUM_USARTS 5
 #define STM32F103_NUM_SPIS 3
 #define STM32F103_NUM_ADCS 3
+#define STM32F103_NUM_GPIOS 7
 
 /* High-density STM32F103: 512 KB Flash, 64 KB SRAM */
 #define STM32F103_FLASH_BASE_ADDRESS 0x08000000
@@ -57,6 +58,14 @@ struct STM32F103State {
     STM32F2XXSPIState spi[STM32F103_NUM_SPIS];
     OrIRQState adc_irqs;
     STM32F1XXADCState adc[STM32F103_NUM_ADCS];
+
+    /*
+     * GPIOA..GPIOG are implemented by the Rust device "stm32f1xx-gpio-rust".
+     * That device is created by name via qdev_new() (pointer-based mounting)
+     * rather than embedded by value, so no C struct definition is required
+     * here and no struct-size coupling with the Rust side is needed.
+     */
+    DeviceState *gpio[STM32F103_NUM_GPIOS];
 
     MemoryRegion sram;
     MemoryRegion flash;

@@ -410,6 +410,7 @@ config STM32F103_SOC
     select STM32F2XX_USART
     select STM32F2XX_SPI
     select STM32F1XX_ADC
+    select STM32F1XX_GPIO if HAVE_RUST
 
 config B_L475E_IOT01A
     bool

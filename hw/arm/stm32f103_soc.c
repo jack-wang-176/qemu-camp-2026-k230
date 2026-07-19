@@ -24,11 +24,15 @@
 
 #include "qemu/osdep.h"
 #include "qapi/error.h"
+#include "qom/object.h"
 #include "system/address-spaces.h"
 #include "system/system.h"
 #include "hw/arm/stm32f103_soc.h"
 #include "hw/core/qdev-clock.h"
 #include "hw/misc/unimp.h"
+
+/* QOM type name of the Rust GPIO device (rust/hw/gpio/src/gpio.rs) */
+#define TYPE_STM32F1XX_GPIO_RUST "stm32f1xx-gpio-rust"
 
 #define RCC_ADDR 0x40021000
 
@@ -45,6 +49,12 @@ static const uint32_t spi_addr[] = {
 /* ADC addresses: ADC1, ADC2, ADC3 */
 static const uint32_t adc_addr[] = {
     0x40012400, 0x40012800, 0x40013C00
+};
+
+/* GPIO addresses: GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG */
+static const uint32_t gpio_addr[] = {
+    0x40010800, 0x40010C00, 0x40011000, 0x40011400, 0x40011800, 0x40011C00,
+    0x40012000
 };
 
 static const int usart_irq[] = { 37, 38, 39, 52, 53 };
@@ -200,6 +210,37 @@ static void stm32f103_soc_realize(DeviceState *dev_soc, Error **errp)
     }
 
     /*
+     * GPIO ports GPIOA..GPIOG.
+     *
+     * These are implemented by the Rust device "stm32f1xx-gpio-rust", created
+     * by name with qdev_new() and mapped at its APB2 base address.  On STM32F1
+     * a GPIO port has no dedicated NVIC line of its own: pin-change interrupts
+     * are delivered through the EXTI controller (not yet modelled), so no
+     * sysbus_connect_irq() to the NVIC is done here.
+     *
+     * The GPIO port is only provided by the Rust build; when QEMU is built
+     * with --disable-rust the type is not registered, so skip creating the
+     * ports and leave the address range unbacked.
+     */
+    if (object_class_by_name(TYPE_STM32F1XX_GPIO_RUST)) {
+        for (i = 0; i < STM32F103_NUM_GPIOS; i++) {
+            g_autofree char *name = g_strdup_printf("gpio%c", 'a' + i);
+            s->gpio[i] = qdev_new(TYPE_STM32F1XX_GPIO_RUST);
+            /*
+             * Give each port a stable QOM name ("/machine/soc/gpioa"..) so
+             * tests and the monitor can reach it and its gpio-out lines by
+             * path.
+             */
+            object_property_add_child(OBJECT(s), name, OBJECT(s->gpio[i]));
+            busdev = SYS_BUS_DEVICE(s->gpio[i]);
+            if (!sysbus_realize_and_unref(busdev, errp)) {
+                return;
+            }
+            sysbus_mmio_map(busdev, 0, gpio_addr[i]);
+        }
+    }
+
+    /*
      * Unimplemented peripherals -- STM32F103 devices that do not yet
      * have QEMU models.
      */
@@ -231,13 +272,12 @@ static void stm32f103_soc_realize(DeviceState *dev_soc, Error **errp)
     /* APB2 peripherals */
     create_unimplemented_device("AFIO",        0x40010000, 0x400);
     create_unimplemented_device("EXTI",        0x40010400, 0x400);
-    create_unimplemented_device("GPIOA",       0x40010800, 0x400);
-    create_unimplemented_device("GPIOB",       0x40010C00, 0x400);
-    create_unimplemented_device("GPIOC",       0x40011000, 0x400);
-    create_unimplemented_device("GPIOD",       0x40011400, 0x400);
-    create_unimplemented_device("GPIOE",       0x40011800, 0x400);
-    create_unimplemented_device("GPIOF",       0x40011C00, 0x400);
-    create_unimplemented_device("GPIOG",       0x40012000, 0x400);
+    /*
+     * GPIOA..GPIOG (0x40010800..0x40012000) are real devices mapped in the
+     * GPIO loop above when the Rust build is used, so they must NOT be
+     * registered as unimplemented devices here: overlapping MemoryRegions at
+     * the same address abort at runtime.
+     */
     create_unimplemented_device("timer[1]",    0x40012C00, 0x400);
     create_unimplemented_device("timer[8]",    0x40013400, 0x400);
     create_unimplemented_device("timer[9]",    0x40014C00, 0x400);
