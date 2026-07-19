@@ -1,0 +1,2 @@
+config X_STM32F1XX_GPIO_RUST
+    bool
