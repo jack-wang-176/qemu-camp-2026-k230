@@ -1,9 +1,27 @@
 [workspace]
 resolver = "2"
 members = [
+    "bindings/chardev-sys",
+    "bindings/hwcore-sys",
+    "bindings/migration-sys",
+    "bindings/qom-sys",
+    "bindings/system-sys",
+    "bindings/util-sys",
+    "bits",
+    "bql",
+    "chardev",
+    "common",
     "hw/char/pl011",
+    "hw/core",
+    "hw/gpio",
     "hw/timer/hpet",
+    "migration",
+    "qemu-macros",
+    "qom",
+    "system",
     "tests",
+    "trace",
+    "util",
 ]
 
 [workspace.package]
